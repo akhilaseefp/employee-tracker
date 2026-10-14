@@ -94,9 +94,11 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="fas fa-calendar-alt me-2"></i>Daily Updates</h2>
-    <a href="<?php echo url('daily-updates/create.php'); ?>" class="btn btn-primary">
-        <i class="fas fa-plus me-2"></i>Submit Update
-    </a>
+    <?php if ($userRole === ROLE_EMPLOYEE): ?>
+        <a href="<?php echo url('daily-updates/create.php'); ?>" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Submit Update
+        </a>
+    <?php endif; ?>
 </div>
 
 <?php echo renderFlash(); ?>

@@ -45,22 +45,34 @@ $teamWhereClause = '';
 $teamParams = [];
 $employeeIds = [];
 
-if (!empty($teamMembers)) {
-    $employeeIds = array_column($teamMembers, 'id');
-    $placeholders = [];
-    foreach ($employeeIds as $index => $id) {
-        $placeholders[] = ':team_member_' . $index;
-        $teamParams[':team_member_' . $index] = $id;
-    }
-    $teamWhereClause = ' AND t.assigned_to IN (' . implode(', ', $placeholders) . ')';
-}
-
-// Apply employee filter if specified and authorized
-if (!empty($filters['employee'])) {
-    if ($userRole === ROLE_ADMIN || in_array($filters['employee'], $employeeIds)) {
-        // Clear team params and filter to specific employee
-        $teamParams = [':specific_employee' => $filters['employee']];
+if ($userRole === ROLE_ADMIN) {
+    if (!empty($filters['employee'])) {
         $teamWhereClause = ' AND t.assigned_to = :specific_employee';
+        $teamParams[':specific_employee'] = $filters['employee'];
+    }
+} else {
+    // Manager scoping: restricted to direct reports
+    if (empty($teamMembers)) {
+        // Manager with no team members should see no tasks
+        $teamWhereClause = ' AND 1=0';
+    } else {
+        $employeeIds = array_column($teamMembers, 'id');
+        if (!empty($filters['employee'])) {
+            if (in_array($filters['employee'], $employeeIds)) {
+                $teamWhereClause = ' AND t.assigned_to = :specific_employee';
+                $teamParams[':specific_employee'] = $filters['employee'];
+            } else {
+                // Requested employee not in manager's team
+                $teamWhereClause = ' AND 1=0';
+            }
+        } else {
+            $placeholders = [];
+            foreach ($employeeIds as $index => $id) {
+                $placeholders[] = ':team_member_' . $index;
+                $teamParams[':team_member_' . $index] = $id;
+            }
+            $teamWhereClause = ' AND t.assigned_to IN (' . implode(', ', $placeholders) . ')';
+        }
     }
 }
 
@@ -114,21 +126,17 @@ if (!empty($filters['export']) && $filters['export'] === 'csv') {
 }
 
 // Get performance summary
-$summaryParams = $teamParams;
-if (empty($summaryParams[':date_from'])) {
-    $summaryParams[':date_from'] = $filters['date_from'] . ' 00:00:00';
-}
-if (empty($summaryParams[':date_to'])) {
-    $summaryParams[':date_to'] = $filters['date_to'] . ' 23:59:59';
-}
-
 $summaryQuery = "
     SELECT
         COUNT(*) as total_tasks,
         SUM(CASE WHEN t.status = 'Completed' THEN 1 ELSE 0 END) as completed_tasks,
         SUM(CASE WHEN t.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress_tasks,
         SUM(CASE WHEN t.status = 'Blocked' THEN 1 ELSE 0 END) as blocked_tasks,
-        SUM(CASE WHEN t.status != 'Completed' AND t.due_date < CURDATE() THEN 1 ELSE 0 END) as overdue_tasks
+        SUM(CASE WHEN t.status != 'Completed' AND t.due_date < CURDATE() THEN 1 ELSE 0 END) as overdue_tasks,
+        SUM(CASE WHEN t.status = 'Completed' AND (
+            (t.completed_at IS NOT NULL AND DATE(t.completed_at) <= t.due_date)
+            OR (t.completed_at IS NULL AND DATE(t.updated_at) <= t.due_date)
+        ) THEN 1 ELSE 0 END) as on_time_completed_tasks
     FROM tasks t
     JOIN users u ON t.assigned_to = u.id
     WHERE 1=1 {$teamWhereClause} {$dateConditions}
@@ -139,10 +147,11 @@ $summary = Database::fetchOne($summaryQuery, $teamParams);
 $totalTasks = (int)($summary['total_tasks'] ?? 0);
 $completedTasks = (int)($summary['completed_tasks'] ?? 0);
 $overdueTasks = (int)($summary['overdue_tasks'] ?? 0);
+$onTimeCompleted = (int)($summary['on_time_completed_tasks'] ?? 0);
 
 // Calculate rates with zero protection
 $completionRate = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
-$onTimeRate = $totalTasks > 0 ? round((($totalTasks - $overdueTasks) / $totalTasks) * 100) : 0;
+$onTimeRate = $totalTasks > 0 ? round(($onTimeCompleted / $totalTasks) * 100) : 0;
 
 // Get task details for table (limited for display)
 $displayQuery = $taskQuery . " LIMIT 50";

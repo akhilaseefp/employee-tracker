@@ -20,9 +20,7 @@ $existingAdmin = Database::fetchOne(
 
 if ($existingAdmin) {
     // Admin already exists - redirect to login
-    setFlash('Admin account already exists. Please log in.', 'info');
-    header('Location: ' . APP_URL . '/login.php');
-    exit;
+    redirect('login.php', 'info', 'Admin account already exists. Please log in.');
 }
 
 // Handle form submission
@@ -75,15 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $success = true;
 
-            // Set flash message for redirect
-            $_SESSION['flash'] = [
-                'message' => 'Admin account created successfully! You can now log in.',
-                'type' => 'success',
-                'timestamp' => time(),
-            ];
-
-            header('Location: ' . APP_URL . '/login.php');
-            exit;
+            redirect('login.php', 'success', 'Admin account created successfully! You can now log in.');
         } catch (Exception $e) {
             error_log('Admin creation error: ' . $e->getMessage());
             $errors['general'] = 'Failed to create admin account. Please try again.';

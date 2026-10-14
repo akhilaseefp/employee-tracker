@@ -14,12 +14,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return new bootstrap.Popover(popoverTriggerEl);
     });
 
-    // Auto-close alerts after 5 seconds
-    const alertList = [].slice.call(document.querySelectorAll('.alert:not(.alert-permanent)'));
+    // Auto-close temporary flash alerts after 5 seconds (never close permanent content like saved feedback)
+    const alertList = [].slice.call(document.querySelectorAll('.alert.alert-dismissible:not(.alert-permanent)'));
     alertList.forEach(function (alertEl) {
         setTimeout(function () {
-            const bsAlert = new bootstrap.Alert(alertEl);
-            bsAlert.close();
+            try {
+                const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+                if (bsAlert) {
+                    bsAlert.close();
+                }
+            } catch (e) {
+                // Ignore if already dismissed
+            }
         }, 5000);
     });
 

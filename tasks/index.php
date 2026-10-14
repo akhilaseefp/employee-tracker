@@ -57,8 +57,9 @@ if (!empty($filters['priority'])) {
 }
 
 if (!empty($filters['search'])) {
-    $whereConditions[] = '(t.title LIKE :search OR t.description LIKE :search)';
-    $params[':search'] = '%' . $filters['search'] . '%';
+    $whereConditions[] = '(t.title LIKE :search_title OR t.description LIKE :search_desc)';
+    $params[':search_title'] = '%' . $filters['search'] . '%';
+    $params[':search_desc'] = '%' . $filters['search'] . '%';
 }
 
 if (!empty($filters['employee'])) {

@@ -56,13 +56,10 @@ try {
     Database::commit();
 
     $actionWord = $newStatus ? 'activated' : 'deactivated';
-    setFlash("User {$user['name']} has been {$actionWord} successfully.", 'success');
+    redirect('admin/users.php', 'success', "User {$user['name']} has been {$actionWord} successfully.");
 
 } catch (Exception $e) {
     Database::rollBack();
     error_log('User toggle error: ' . $e->getMessage());
-    setFlash("Failed to {$action} user. Please try again.", 'error');
+    redirect('admin/users.php', 'error', "Failed to {$action} user. Please try again.");
 }
-
-header('Location: ' . url('admin/users.php'));
-exit;

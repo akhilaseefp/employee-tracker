@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/validation.php';
 requireLogin();
 
 $user = getCurrentUser();
-$userId = $user['id'];
+$userId = (int) $user['id'];
 $userRole = $user['role'];
 
 // Only POST requests allowed for status changes
@@ -29,7 +29,7 @@ if ($taskId < 1) {
 }
 
 if (empty($newStatus)) {
-    redirect('tasks/index.php', 'error', 'Invalid status value.');
+    redirect('tasks/view.php?task_id=' . $taskId, 'error', 'Invalid status value.');
 }
 
 // Fetch the task
@@ -45,34 +45,46 @@ if (!$task) {
     redirect('tasks/index.php', 'error', 'Task not found.');
 }
 
+$oldStatus = $task['status'];
+
+// Check if status is actually changing
+if ($oldStatus === $newStatus) {
+    redirect('tasks/view.php?task_id=' . $taskId, 'info', 'Task is already in "' . htmlspecialchars($newStatus) . '" status.');
+}
+
+// Allowed state transition rules
+$allowedTransitions = [
+    STATUS_TODO => [STATUS_IN_PROGRESS, STATUS_BLOCKED, STATUS_COMPLETED],
+    STATUS_IN_PROGRESS => [STATUS_TODO, STATUS_BLOCKED, STATUS_COMPLETED],
+    STATUS_BLOCKED => [STATUS_TODO, STATUS_IN_PROGRESS, STATUS_COMPLETED],
+    STATUS_COMPLETED => [STATUS_TODO, STATUS_IN_PROGRESS], // Reopening
+];
+
+if (!isset($allowedTransitions[$oldStatus]) || !in_array($newStatus, $allowedTransitions[$oldStatus], true)) {
+    redirect('tasks/view.php?task_id=' . $taskId, 'error', "Status transition from '{$oldStatus}' to '{$newStatus}' is not allowed.");
+}
+
 // Check authorization
 $canUpdate = false;
 if ($userRole === ROLE_ADMIN) {
     $canUpdate = true;
 } elseif ($userRole === ROLE_MANAGER) {
-    // Manager can update tasks assigned to their team members
-    if ($task['manager_id'] == $userId || $task['employee_manager_id'] == $userId) {
+    // Manager can update tasks assigned to their team members or managed by them
+    if ((int) $task['manager_id'] === $userId || (int) $task['employee_manager_id'] === $userId) {
         $canUpdate = true;
     }
 } elseif ($userRole === ROLE_EMPLOYEE) {
     // Employees can only update status of their own tasks
-    // And only to certain statuses (To Do, In Progress, Blocked) - not Completed directly
-    if ($task['assigned_to'] == $userId) {
-        // Employees can move tasks to In Progress, Blocked, or back to To Do
-        // but should not mark as Completed (that may require review)
-        $employeeAllowedStatuses = [STATUS_TODO, STATUS_IN_PROGRESS, STATUS_BLOCKED];
-        if (in_array($newStatus, $employeeAllowedStatuses, true)) {
-            $canUpdate = true;
-        }
+    // Allowed statuses for employees: To Do, In Progress, Blocked
+    // Employees cannot transition to Completed (requires manager review) or reopen Completed tasks
+    if ((int) $task['assigned_to'] === $userId && $oldStatus !== STATUS_COMPLETED && $newStatus !== STATUS_COMPLETED) {
+        $canUpdate = true;
     }
 }
 
 if (!$canUpdate) {
-    redirect('tasks/index.php', 'error', 'You do not have permission to update this task.');
+    redirect('tasks/view.php?task_id=' . $taskId, 'error', 'You do not have permission to perform this status update.');
 }
-
-// Log old status before updating
-$oldStatus = $task['status'];
 
 // Update the task with new status
 try {
@@ -83,7 +95,7 @@ try {
         'updated_at' => date('Y-m-d H:i:s'),
     ];
 
-// Set completed_at timestamp when task is completed
+    // Maintain completion timestamp
     if ($newStatus === STATUS_COMPLETED) {
         $updateData['completed_at'] = date('Y-m-d H:i:s');
     } elseif ($oldStatus === STATUS_COMPLETED && $newStatus !== STATUS_COMPLETED) {
@@ -93,13 +105,17 @@ try {
 
     Database::update('tasks', $updateData, 'id', $taskId);
 
+    // Sanitize comment if provided
+    $rawComment = trim($_POST['comment'] ?? '');
+    $sanitizedComment = !empty($rawComment) ? sanitizeInput($rawComment) : null;
+
     // Log status change in activity log
     Database::insert('task_activity', [
         'task_id' => $taskId,
         'changed_by' => $userId,
         'old_status' => $oldStatus,
         'new_status' => $newStatus,
-        'comment' => $_POST['comment'] ?? null,
+        'comment' => $sanitizedComment,
     ]);
 
     Database::commit();

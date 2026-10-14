@@ -27,23 +27,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = loginUser($email, $password);
 
     if ($user) {
+        // Redirect to intended page if set
+        if (!empty($_SESSION['redirect_after_login'])) {
+            $redirectUrl = $_SESSION['redirect_after_login'];
+            unset($_SESSION['redirect_after_login']);
+            header('Location: ' . $redirectUrl);
+            exit;
+        }
+
         // Login successful - redirect based on role
         switch ($user['role']) {
             case ROLE_ADMIN:
-                header('Location: ' . APP_URL . '/admin/users.php');
-                exit;
+                redirect('admin/users.php', 'success', 'Welcome, ' . htmlspecialchars($user['name']) . '!');
             case ROLE_MANAGER:
-                header('Location: ' . APP_URL . '/dashboard.php');
-                exit;
             case ROLE_EMPLOYEE:
-                header('Location: ' . APP_URL . '/dashboard.php');
-                exit;
+            default:
+                redirect('dashboard.php', 'success', 'Welcome, ' . htmlspecialchars($user['name']) . '!');
         }
     } else {
-        // Login failed - show error
-        setFlash('Invalid email or password. Please try again.', 'error');
-        header('Location: ' . APP_URL . '/login.php');
-        exit;
+        // Login failed - show error if not already set (e.g. deactivated account message)
+        if (empty($_SESSION['flash'])) {
+            setFlash('Invalid email or password. Please try again.', 'error');
+        }
+        redirect('login.php');
     }
 }
 ?>

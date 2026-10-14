@@ -4,6 +4,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/csrf.php';
+require_once __DIR__ . '/validation.php';
 
 /**
  * Get a flash message from the session and clear it.
@@ -103,7 +104,9 @@ function renderFlash(): string {
  * @param string $message Message content
  */
 function redirect(string $target, string $type = 'info', string $message = ''): void {
-    setFlash($message, $type);
+    if (!empty($message)) {
+        setFlash($message, $type);
+    }
     header('Location: ' . url($target));
     exit;
 }

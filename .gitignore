@@ -25,4 +25,5 @@ config.local.php
 *.cache
 
 # Do not commit the master prompt to production
-# employee_work_tracker_master_prompt.md
+employee_work_tracker_master_prompt.md
+README.md

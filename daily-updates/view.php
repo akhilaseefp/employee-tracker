@@ -47,7 +47,7 @@ $canAddFeedback = false;
 
 if ($userRole === ROLE_ADMIN) {
     $canView = true;
-    $canEdit = true;
+    $canEdit = false; // Only the submitting employee may edit their report
     $canAddFeedback = true;
 } elseif ($userRole === ROLE_MANAGER) {
     // Managers can access updates submitted by their own team.
@@ -57,9 +57,16 @@ if ($userRole === ROLE_ADMIN) {
         $canAddFeedback = true;
     }
 } elseif ($userRole === ROLE_EMPLOYEE) {
-    if ($update['employee_id'] == $userId) {
+    if ((int) $update['employee_id'] === (int) $userId) {
         $canView = true;
-        $canEdit = true;
+        // Check edit window - within 24 hours of creation OR same work date
+        $createdAt = new DateTime($update['created_at']);
+        $now = new DateTime();
+        $hoursDiff = $createdAt->diff($now)->h + ($createdAt->diff($now)->days * 24);
+        $isSameWorkDate = $update['work_date'] === date('Y-m-d');
+        if ($hoursDiff <= 24 || $isSameWorkDate) {
+            $canEdit = true;
+        }
     }
 }
 
@@ -226,7 +233,7 @@ include __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="card-body">
                     <?php if ($feedback): ?>
-                        <div class="alert alert-info mb-3">
+                        <div class="alert alert-info alert-permanent mb-3">
                             <p class="mb-1"><strong><?php echo htmlspecialchars($feedback['manager_name']); ?></strong></p>
                             <p class="mb-0 small">
                                 <?php echo nl2br(htmlspecialchars($feedback['feedback'])); ?>
@@ -263,7 +270,7 @@ include __DIR__ . '/../includes/header.php';
                     <h6 class="mb-0"><i class="fas fa-comment-dots me-2"></i>Manager Feedback</h6>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info mb-3">
+                    <div class="alert alert-info alert-permanent mb-3">
                         <p class="mb-1"><strong><?php echo htmlspecialchars($feedback['manager_name']); ?></strong></p>
                         <p class="mb-0 small">
                             <?php echo nl2br(htmlspecialchars($feedback['feedback'])); ?>

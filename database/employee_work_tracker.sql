@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 15, 2026 at 12:29 AM
+-- Generation Time: Oct 15, 2026 at 03:06 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -89,7 +89,7 @@ CREATE TABLE `manager_feedback` (
 --
 
 INSERT INTO `manager_feedback` (`id`, `daily_update_id`, `manager_id`, `feedback`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'Good start on the authentication system. Please ensure password policies are documented.', '2026-10-14 15:16:17', '2026-10-14 15:16:17'),
+(1, 1, 1, 'zz', '2026-10-14 15:16:17', '2026-10-15 01:49:10'),
 (2, 2, 1, 'Schema looks solid. Add indexes on foreign keys as discussed.', '2026-10-14 15:16:17', '2026-10-14 15:16:17');
 
 -- --------------------------------------------------------
@@ -119,12 +119,12 @@ CREATE TABLE `tasks` (
 --
 
 INSERT INTO `tasks` (`id`, `title`, `description`, `assigned_to`, `created_by`, `manager_id`, `priority`, `status`, `start_date`, `due_date`, `completed_at`, `created_at`, `updated_at`) VALUES
-(1, 'Implement login system', 'Build authentication with PDO and password_hash', 2, 1, 0, 'High', 'In Progress', '2026-10-01', '2026-10-15', NULL, '2026-10-14 15:16:17', '2026-10-14 15:16:17'),
-(2, 'Design database schema', 'Create normalized tables for employees, tasks, updates', 2, 1, 0, 'Medium', 'To Do', '2026-10-01', '2026-10-20', NULL, '2026-10-14 15:16:17', '2026-10-14 15:16:17'),
-(3, 'Develop task management UI', 'Create CRUD interface for task creation and editing', 2, 1, 0, 'High', 'In Progress', '2026-10-05', '2026-10-18', NULL, '2026-10-14 15:16:17', '2026-10-14 15:16:17'),
-(4, 'Implement daily updates form', 'Allow employees to submit daily work reports', 3, 1, 0, 'Medium', 'To Do', '2026-10-01', '2026-10-16', NULL, '2026-10-14 15:16:17', '2026-10-14 15:16:17'),
-(5, 'Build manager dashboard', 'Display team progress, overdue tasks, reports', 2, 1, 0, 'High', 'Blocked', '2026-10-01', '2026-10-25', NULL, '2026-10-14 15:16:17', '2026-10-14 15:16:17'),
-(6, 'Performance evaluation metrics', 'Calculate completion rates and overdue stats', 2, 1, 0, 'Low', 'To Do', '2026-10-10', '2026-11-10', NULL, '2026-10-14 15:16:17', '2026-10-14 15:16:17');
+(1, 'Implement login system', 'Build authentication with PDO and password_hash ok', 2, 1, 1, 'High', 'In Progress', '2026-10-01', '2026-10-15', NULL, '2026-10-14 15:16:17', '2026-10-15 01:48:51'),
+(2, 'Design database schema', 'Create normalized tables for employees, tasks, updates', 2, 1, 1, 'Medium', 'To Do', '2026-10-01', '2026-10-20', NULL, '2026-10-14 15:16:17', '2026-10-15 01:29:02'),
+(3, 'Develop task management UI', 'Create CRUD interface for task creation and editing', 2, 1, 1, 'High', 'In Progress', '2026-10-05', '2026-10-18', NULL, '2026-10-14 15:16:17', '2026-10-15 01:29:02'),
+(4, 'Implement daily updates form', 'Allow employees to submit daily work reports', 3, 1, 1, 'Medium', 'To Do', '2026-10-01', '2026-10-16', NULL, '2026-10-14 15:16:17', '2026-10-15 01:29:02'),
+(5, 'Build manager dashboard', 'Display team progress, overdue tasks, reports', 2, 1, 1, 'High', 'Blocked', '2026-10-01', '2026-10-25', NULL, '2026-10-14 15:16:17', '2026-10-15 01:29:02'),
+(6, 'Performance evaluation metrics', 'Calculate completion rates and overdue stats', 2, 1, 1, 'Low', 'To Do', '2026-10-10', '2026-11-10', NULL, '2026-10-14 15:16:17', '2026-10-15 01:29:02');
 
 -- --------------------------------------------------------
 
@@ -148,7 +148,9 @@ CREATE TABLE `task_activity` (
 
 INSERT INTO `task_activity` (`id`, `task_id`, `changed_by`, `old_status`, `new_status`, `comment`, `created_at`) VALUES
 (1, 1, 1, 'To Do', 'In Progress', 'Started work on login system', '2026-10-14 15:16:17'),
-(2, 3, 1, 'To Do', 'In Progress', 'Began developing task management UI', '2026-10-14 15:16:17');
+(2, 3, 1, 'To Do', 'In Progress', 'Began developing task management UI', '2026-10-14 15:16:17'),
+(3, 1, 1, 'In Progress', 'In Progress', 'aaa', '2026-10-15 01:48:14'),
+(4, 1, 1, 'In Progress', 'In Progress', 'Task edited', '2026-10-15 01:48:51');
 
 -- --------------------------------------------------------
 
@@ -265,7 +267,7 @@ ALTER TABLE `tasks`
 -- AUTO_INCREMENT for table `task_activity`
 --
 ALTER TABLE `task_activity`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `users`

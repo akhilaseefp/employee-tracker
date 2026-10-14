@@ -18,17 +18,13 @@
 - Collation: `utf8mb4_unicode_ci`
 - Click "Create"
 
-### 4. Import Schema
+### 4. Import Database Schema and Seed Data
 - In phpMyAdmin, select the `employee_work_tracker` database
 - Click "Import" tab
-- Choose `database/schema.sql` file from this project
+- Choose `database/employee_work_tracker.sql` file from this project
 - Click "Go" to import
-- All 6 tables will be created: users, tasks, daily_updates, daily_update_tasks, manager_feedback, task_activity
-
-### 5. Import Seed Data (Optional)
-- To import demo data, also import `database/seed.sql`
-- This creates demo users, tasks, daily updates, and manager feedback
-- **IMPORTANT:** Demo passwords are local-only. Change all passwords before any non-local use.
+- All 6 tables will be created and populated with initial seed data: users, tasks, daily_updates, daily_update_tasks, manager_feedback, task_activity
+- **IMPORTANT:** Demo passwords are local-only (`password123`). Change all passwords before any non-local use.
 
 ### 6. Configuration
 - Review and edit `includes/config.php` if needed:
@@ -77,7 +73,7 @@
 - Ensure database schema was imported without errors
 
 #### Missing Tables
-- Re-import `database/schema.sql` in phpMyAdmin
+- Re-import `database/employee_work_tracker.sql` in phpMyAdmin
 - Verify database selection before importing
 - Check for SQL syntax errors in the import
 
@@ -160,8 +156,7 @@ employee-tracker/
 │   └── js/
 │       └── app.js   - DOMContentLoaded init, tooltips, form handling
 ├── database/
-│   ├── schema.sql   - Complete SQL schema with tables, keys, constraints, indexes
-│   └── seed.sql     - Demo data with safe credentials guidance
+│   └── employee_work_tracker.sql - Complete SQL schema with tables, keys, constraints, indexes, and seed data
 ├── tests/
 │   └── manual-test-plan.md - 50+ test cases across 7 categories
 ├── README.md        - This file
@@ -265,7 +260,7 @@ employee-tracker/
 6. **Performance metrics**: Simple completion rate - not weighted or scientifically validated scores
 7. **Manager feedback**: Can add/update, but not delete (for audit trail)
 8. **No automated backups**: Data responsibility remains with XAMPP/MySQL administration
-9. **Sample data clearly marked**: All demo data identified as such in README and seed.sql
+9. **Sample data clearly marked**: All demo data identified as such in README and employee_work_tracker.sql
 10. **CSV formulas**: Export produces clean CSV without embedded spreadsheet formulas
 11. **Date handling**: All due_date comparisons use UTC; converted to local time only for display
 12. **Session timeout**: 2 hours (configurable via SESSION_LIFETIME in config.php)

@@ -63,9 +63,9 @@ if ($userRole === ROLE_ADMIN) {
 
 $errors = [];
 $old = [
-    'title' => htmlspecialchars($task['title'] ?? ''),
-    'description' => htmlspecialchars($task['description'] ?? ''),
-    'assigned_to' => $task['assigned_to'] ?? 0,
+    'title' => $task['title'] ?? '',
+    'description' => $task['description'] ?? '',
+    'assigned_to' => (int) ($task['assigned_to'] ?? 0),
     'priority' => $task['priority'] ?? PRIORITY_MEDIUM,
     'status' => $task['status'] ?? STATUS_TODO,
     'start_date' => $task['start_date'] ?? date('Y-m-d'),
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
 
     // Validate inputs
-    $old['title'] = validateString($_POST['title'] ?? $old['title'], 200) ?? '';
+    $old['title'] = validateString($_POST['title'] ?? $old['title'], 200, true) ?? '';
     $old['description'] = validateString($_POST['description'] ?? $old['description'], 5000) ?? '';
     $old['assigned_to'] = validateInt($_POST['assigned_to'] ?? $old['assigned_to'], 1) ?? 0;
     $old['priority'] = validatePriority($_POST['priority'] ?? $old['priority']) ?? PRIORITY_MEDIUM;
@@ -89,10 +89,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['title'] = 'Title is required.';
     }
 
+    $assignedUser = null;
     if (empty($old['assigned_to'])) {
         $errors['assigned_to'] = 'Please select an employee to assign the task.';
-    } elseif (!isActiveEmployee($old['assigned_to'])) {
-        $errors['assigned_to'] = 'Selected employee is not active or does not exist.';
+    } else {
+        $assignedUser = Database::fetchOne(
+            'SELECT id, role, manager_id, is_active FROM users WHERE id = :id',
+            [':id' => $old['assigned_to']]
+        );
+
+        if (!$assignedUser || !$assignedUser['is_active'] || $assignedUser['role'] !== ROLE_EMPLOYEE) {
+            $errors['assigned_to'] = 'Selected employee is not an active employee.';
+        } elseif ($userRole === ROLE_MANAGER && (int) $assignedUser['manager_id'] !== (int) $userId) {
+            $errors['assigned_to'] = 'You can only assign tasks to members of your team.';
+        }
     }
 
     if (empty($old['start_date'])) {
@@ -113,8 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             Database::beginTransaction();
 
-            // Update task
-            $updated = Database::update('tasks', [
+            $updateData = [
                 'title' => $old['title'],
                 'description' => $old['description'],
                 'assigned_to' => $old['assigned_to'],
@@ -123,20 +132,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'start_date' => $old['start_date'],
                 'due_date' => $old['due_date'],
                 'updated_at' => date('Y-m-d H:i:s'),
-            ], 'id', $taskId);
+            ];
 
-            if ($updated === 0) {
-                throw new Exception('Failed to update task - no rows affected');
+            // Maintain completion timestamp
+            if ($old['status'] === STATUS_COMPLETED && $task['status'] !== STATUS_COMPLETED) {
+                $updateData['completed_at'] = date('Y-m-d H:i:s');
+            } elseif ($task['status'] === STATUS_COMPLETED && $old['status'] !== STATUS_COMPLETED) {
+                $updateData['completed_at'] = null;
             }
+
+            // Update task (note: rowCount can be 0 if fields are unchanged)
+            Database::update('tasks', $updateData, 'id', $taskId);
 
             // Log the update in activity
             $oldStatus = $task['status'];
+            $activityComment = ($oldStatus !== $old['status'])
+                ? "Status changed from {$oldStatus} to {$old['status']}"
+                : 'Task edited';
+
             Database::insert('task_activity', [
                 'task_id' => $taskId,
                 'changed_by' => $userId,
                 'old_status' => $oldStatus,
                 'new_status' => $old['status'],
-                'comment' => 'Task edited',
+                'comment' => $activityComment,
             ]);
 
             Database::commit();

@@ -468,18 +468,9 @@ function getStatusIcon(string $status): string {
  */
 function sanitizeCsv(string $value): string {
     // Prevent spreadsheet formula injection: prepend a leading single quote
-    // to any cell that begins with a formula-triggering character (=, +, -, @).
-    // This neutralizes the cell in Excel/Google Sheets without altering the
-    // displayed value (the quote is hidden by the spreadsheet renderer).
-    if ($value !== '' && preg_match('/^[=+\-@]/', $value)) {
-        $value = "'" . $value;
-    }
-
-    // Escape quotes by doubling them
-    $value = str_replace('"', '""', $value);
-    // Wrap in quotes if contains comma, quote, or newline
-    if (preg_match('/[",\n]/', $value)) {
-        $value = '"' . $value . '"';
+    // to any cell that begins with a formula-triggering character (=, +, -, @, tab, CR).
+    if ($value !== '' && preg_match('/^[=+\-@\t\r]/', $value)) {
+        return "'" . $value;
     }
     return $value;
 }
@@ -491,11 +482,13 @@ function sanitizeCsv(string $value): string {
  * @return string CSV line
  */
 function arrayToCsv(array $data): string {
-    $line = [];
-    foreach ($data as $field) {
-        $line[] = sanitizeCsv($field);
-    }
-    return implode(',', $line);
+    $fp = fopen('php://memory', 'r+');
+    $safeData = array_map(fn($cell) => sanitizeCsv((string)$cell), $data);
+    fputcsv($fp, $safeData);
+    rewind($fp);
+    $line = stream_get_contents($fp);
+    fclose($fp);
+    return rtrim($line, "\r\n");
 }
 
 /**
@@ -506,19 +499,24 @@ function arrayToCsv(array $data): string {
  * @param array $rows Array of data rows
  */
 function downloadCsv(string $filename, array $headers, array $rows): void {
-    header('Content-Type: text/csv');
+    header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     header('Pragma: no-cache');
     header('Expires: 0');
 
     $output = fopen('php://output', 'w');
 
-    // Write headers
-    fputcsv($output, $headers);
+    // Output UTF-8 BOM for Excel compatibility
+    fwrite($output, "\xEF\xBB\xBF");
 
-    // Write data rows
+    // Write sanitized headers
+    $safeHeaders = array_map(fn($h) => sanitizeCsv((string)$h), $headers);
+    fputcsv($output, $safeHeaders);
+
+    // Write sanitized data rows
     foreach ($rows as $row) {
-        fputcsv($output, $row);
+        $safeRow = array_map(fn($cell) => sanitizeCsv((string)$cell), $row);
+        fputcsv($output, $safeRow);
     }
 
     fclose($output);
@@ -551,7 +549,13 @@ function getBaseUrl(): string {
  * @return string Full URL
  */
 function url(string $path): string {
+    if (preg_match('#^https?://#i', $path)) {
+        return $path;
+    }
     $path = ltrim($path, '/');
+    if ($path === '') {
+        return getBaseUrl();
+    }
     return getBaseUrl() . '/' . $path;
 }
 

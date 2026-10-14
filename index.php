@@ -6,13 +6,12 @@ require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/validation.php';
 
 // If already logged in, redirect to dashboard
 if (isLoggedIn()) {
-    header('Location: ' . APP_URL . '/dashboard.php');
-    exit;
+    redirect('dashboard.php');
 }
 
 // Not logged in - redirect to login page
-header('Location: ' . APP_URL . '/login.php');
-exit;
+redirect('login.php');

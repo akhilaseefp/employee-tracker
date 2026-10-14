@@ -24,6 +24,7 @@ $pdoOptions = [
 define('APP_NAME', 'Employee Daily Work Update System');
 define('APP_URL', 'http://localhost/employee-tracker');
 define('TIMEZONE', 'UTC'); // Use UTC consistently; adjust to your local timezone if needed
+date_default_timezone_set(TIMEZONE);
 
 // Session settings
 // Regenerate session ID on login for security

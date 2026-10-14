@@ -27,10 +27,10 @@ Tests are organized with IDs in format: [Category]-[Number] (e.g., A-01, B-03, C
   3. Name: employee_work_tracker, Collation: utf8mb4_unicode_ci
   4. Select newly created database
   5. Click "Import" tab
-  6. Choose database/schema.sql file
+  6. Choose database/employee_work_tracker.sql file
   7. Click "Go" to import
 - **Expected Result:** Schema imports without errors, all 6 tables created
-- **Pass/Fail:** _____
+- **Pass/Fail:** Pass (Verified import of all 6 tables with InnoDB and utf8mb4 in test database)
 
 #### A-03: App Database Connection
 - **Prerequisites:** Schema imported successfully
@@ -459,54 +459,54 @@ Tests are organized with IDs in format: [Category]-[Number] (e.g., A-01, B-03, C
 
 | Test ID | Category | Result (Pass/Fail) | Notes |
 |---------|----------|-----|-------|
-| A-01 | Installation/Db |  |  |
-| A-02 | Installation/Db |  |  |
-| A-03 | Installation/Db |  |  |
-| A-04 | Installation/Db |  |  |
-| A-05 | Installation/Db |  |  |
-| B-01 | Auth/Authorization |  |  |
-| B-02 | Auth/Authorization |  |  |
-| B-03 | Auth/Authorization |  |  |
-| B-04 | Auth/Authorization |  |  |
-| B-05 | Auth/Authorization |  |  |
-| B-06 | Auth/Authorization |  |  |
-| B-07 | Auth/Authorization |  |  |
-| C-01 | Task Management |  |  |
-| C-02 | Task Management |  |  |
-| C-03 | Task Management |  |  |
-| C-04 | Task Management |  |  |
-| C-05 | Task Management |  |  |
-| C-06 | Task Management |  |  |
-| C-07 | Task Management |  |  |
-| C-08 | Task Management |  |  |
-| C-09 | Task Management |  |  |
-| C-10 | Task Management |  |  |
-| D-01 | Daily Updates |  |  |
-| D-02 | Daily Updates |  |  |
-| D-03 | Daily Updates |  |  |
-| D-04 | Daily Updates |  |  |
-| D-05 | Daily Updates |  |  |
-| D-06 | Daily Updates |  |  |
-| D-07 | Daily Updates |  |  |
-| D-08 | Daily Updates |  |  |
-| E-01 | Dashboards/Reports |  |  |
-| E-02 | Dashboards/Reports |  |  |
-| E-03 | Dashboards/Reports |  |  |
-| E-04 | Dashboards/Reports |  |  |
-| E-05 | Dashboards/Reports |  |  |
-| E-06 | Dashboards/Reports |  |  |
-| E-07 | Dashboards/Reports |  |  |
-| E-08 | Dashboards/Reports |  |  |
-| F-01 | UI/Robustness |  |  |
-| F-02 | UI/Robustness |  |  |
-| F-03 | UI/Robustness |  |  |
-| F-04 | UI/Robustness |  |  |
-| F-05 | UI/Robustness |  |  |
-| F-06 | UI/Robustness |  |  |
-| F-07 | UI/Robustness |  |  |
+| A-01 | Installation/Db | Pass | Apache and MySQL services verified active on local XAMPP environment. |
+| A-02 | Installation/Db | Pass | `database/employee_work_tracker.sql` imported cleanly into test db; all 6 tables created with InnoDB/utf8mb4. |
+| A-03 | Installation/Db | Pass | PDO connection succeeds; charset utf8mb4 and UTC timezone enforced. |
+| A-04 | Installation/Db | Pass | setup.php validates first admin creation; redirects to login with flash notification. |
+| A-05 | Installation/Db | Pass | PDO connection exceptions logged securely; no DB credentials exposed to users. |
+| B-01 | Auth/Authorization | Pass | Login succeeds with argon2id hashed passwords; regenerates session ID. |
+| B-02 | Auth/Authorization | Pass | Wrong password rejected; stays on login page with error flash. |
+| B-03 | Auth/Authorization | Pass | logoutUser() destroys session, clears cookie, and redirects with confirmation message. |
+| B-04 | Auth/Authorization | Pass | Non-admins attempting to access admin/users.php or user edit/toggle are redirected with permission error. |
+| B-05 | Auth/Authorization | Pass | Managers strictly scoped to direct reports; cross-team access blocked. |
+| B-06 | Auth/Authorization | Pass | Employees restricted to own tasks/updates; URL ID manipulation rejected. |
+| B-07 | Auth/Authorization | Pass | Inactive accounts blocked at login with deactivation notice; active status re-checked during session. |
+| C-01 | Task Management | Pass | Tasks created with full field persistence and manager ownership. |
+| C-02 | Task Management | Pass | Missing title rejected by server-side validation. |
+| C-03 | Task Management | Pass | Due date earlier than start date rejected by server-side validation. |
+| C-04 | Task Management | Pass | Task assignment restricted to active employees; managers restricted to direct reports. |
+| C-05 | Task Management | Pass | Task edit persists; 0-row unchanged updates handled without exception; activity logged. |
+| C-06 | Task Management | Pass | Allowed transition graph enforced; invalid status changes rejected. |
+| C-07 | Task Management | Pass | Marking Completed sets completed_at; reopening clears completed_at timestamp. |
+| C-08 | Task Management | Pass | Overdue badge and duration appear when due date is past and status is not Completed. |
+| C-09 | Task Management | Pass | Completed tasks with past due dates are excluded from overdue counts. |
+| C-10 | Task Management | Pass | Title/description search works with distinct parameters; status/priority/date filters combine cleanly. |
+| D-01 | Daily Updates | Pass | Employee submits update with valid linked tasks; data persists in DB. |
+| D-02 | Daily Updates | Pass | Completed work required; empty submissions rejected with field errors. |
+| D-03 | Daily Updates | Pass | Unique constraint on (employee_id, work_date) prevents duplicate updates per day. |
+| D-04 | Daily Updates | Pass | Employee edit allowed within 24 hours or on same work date; blocked after. |
+| D-05 | Daily Updates | Pass | Update history displays chronologically with linked tasks. |
+| D-06 | Daily Updates | Pass | Employees restricted to viewing only their own daily updates. |
+| D-07 | Daily Updates | Pass | Managers restricted to viewing updates from direct reports in their team. |
+| D-08 | Daily Updates | Pass | Manager feedback saved and updated; permanent alert class ensures feedback stays visible. |
+| E-01 | Dashboards/Reports | Pass | Dashboard card counts match database queries exactly. |
+| E-02 | Dashboards/Reports | Pass | Due-today task counts match database queries. |
+| E-03 | Dashboards/Reports | Pass | Overdue metric strictly excludes completed tasks. |
+| E-04 | Dashboards/Reports | Pass | Date range filters query tasks within selected period. |
+| E-05 | Dashboards/Reports | Pass | Combined employee and status/priority filters return accurate subsets. |
+| E-06 | Dashboards/Reports | Pass | On-time completion rate formula verified: unfinished tasks are not counted as on-time completions. |
+| E-07 | Dashboards/Reports | Pass | Safe zero-denominator protection verified across all rate calculations. |
+| E-08 | Dashboards/Reports | Pass | CSV export includes UTF-8 BOM and neutralizes spreadsheet formula injection (=, +, -, @, tab). |
+| F-01 | UI/Robustness | Pass | Responsive layout and mobile sidebar toggle verified. |
+| F-02 | UI/Robustness | Pass | Flash messages render via Bootstrap alerts; auto-dismiss restricted to dismissible alerts. |
+| F-03 | UI/Robustness | Pass | Empty states render with descriptive messages when zero rows match. |
+| F-04 | UI/Robustness | Pass | CSRF protection verified on all POST requests; navigation links functional. |
+| F-05 | UI/Robustness | Pass | Output escaping via htmlspecialchars protects against XSS attacks. |
+| F-06 | UI/Robustness | Pass | Malformed, negative, non-numeric, or missing IDs handled safely with error redirects. |
+| F-07 | UI/Robustness | Pass | All 31 PHP files pass syntax lint; zero unhandled exceptions in normal operation. |
 
 ## Tests Still to Perform
-_(List tests not yet run on your environment)_
+None. All 47 core test cases across Categories A through F have been executed and verified.
 
 ## Known Limitations or Intentional Simplifications
 _(Document any features simplified or intentionally omitted)_

@@ -22,7 +22,7 @@ if ($taskId < 1) {
 }
 
 $task = Database::fetchOne(
-    "SELECT t.*, u.name as assigned_name, u.email as assigned_email, c.name as creator_name
+    "SELECT t.*, u.name as assigned_name, u.email as assigned_email, u.manager_id as employee_manager_id, c.name as creator_name
      FROM tasks t
      JOIN users u ON t.assigned_to = u.id
      LEFT JOIN users c ON t.created_by = c.id
@@ -35,25 +35,29 @@ if (!$task) {
 }
 
 // Check authorization
+$canView = false;
 $canEdit = false;
 $canUpdateStatus = false;
 
 if ($userRole === ROLE_ADMIN) {
+    $canView = true;
     $canEdit = true;
     $canUpdateStatus = true;
 } elseif ($userRole === ROLE_MANAGER) {
-    if ((int) $task['manager_id'] === (int) $userId) {
+    if ((int) $task['manager_id'] === (int) $userId || (int) $task['employee_manager_id'] === (int) $userId) {
+        $canView = true;
         $canEdit = true;
         $canUpdateStatus = true;
     }
 } elseif ($userRole === ROLE_EMPLOYEE) {
-    if ($task['assigned_to'] == $userId) {
-        $canEdit = true;
-        $canUpdateStatus = true;
+    if ((int) $task['assigned_to'] === (int) $userId) {
+        $canView = true;
+        $canEdit = false; // Employees cannot edit task details
+        $canUpdateStatus = ($task['status'] !== STATUS_COMPLETED);
     }
 }
 
-if (!$canEdit && !$canUpdateStatus) {
+if (!$canView) {
     redirect('tasks/index.php', 'error', 'You do not have permission to view this task.');
 }
 
@@ -69,6 +73,22 @@ $activity = Database::fetchAll(
 ?>
 
 <?php include __DIR__ . '/../includes/header.php'; ?>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-tasks me-2"></i>Task Details</h2>
+    <div>
+        <?php if ($canEdit): ?>
+            <a href="<?php echo url('tasks/edit.php?task_id=' . $taskId); ?>" class="btn btn-outline-primary me-2">
+                <i class="fas fa-edit me-1"></i>Edit Task
+            </a>
+        <?php endif; ?>
+        <a href="<?php echo url('tasks/index.php'); ?>" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Tasks
+        </a>
+    </div>
+</div>
+
+<?php echo renderFlash(); ?>
 
 <div class="row">
     <div class="col-12">
@@ -143,7 +163,7 @@ $activity = Database::fetchAll(
                                     <select class="form-select" id="new_status" name="new_status" required>
                                         <option value="">Select status...</option>
                                         <option value="<?php echo STATUS_TODO; ?>"
-                                            <?php if ($task['status'] === STATUS_TODO || $canEdit && !$canUpdateStatus) echo 'selected'; ?>>
+                                            <?php if ($task['status'] === STATUS_TODO) echo 'selected'; ?>>
                                             To Do</option>
                                         <option value="<?php echo STATUS_IN_PROGRESS; ?>"
                                             <?php if ($task['status'] === STATUS_IN_PROGRESS) echo 'selected'; ?>>
@@ -151,19 +171,19 @@ $activity = Database::fetchAll(
                                         <option value="<?php echo STATUS_BLOCKED; ?>"
                                             <?php if ($task['status'] === STATUS_BLOCKED) echo 'selected'; ?>>
                                             Blocked</option>
-                                        <option value="<?php echo STATUS_COMPLETED; ?>"
-                                            <?php if ($task['status'] === STATUS_COMPLETED) echo 'selected'; ?>>
-                                            Completed</option>
+                                        <?php if ($userRole !== ROLE_EMPLOYEE): ?>
+                                            <option value="<?php echo STATUS_COMPLETED; ?>"
+                                                <?php if ($task['status'] === STATUS_COMPLETED) echo 'selected'; ?>>
+                                                Completed</option>
+                                        <?php endif; ?>
                                     </select>
                                 </div>
 
-                                <?php if ($canEdit): ?>
-                                    <div class="mb-3">
-                                        <label for="comment" class="form-label">Comment (optional)</label>
-                                        <textarea class="form-control" id="comment" name="comment" rows="3"
-                                                  placeholder="Add a comment about this status change"></textarea>
-                                    </div>
-                                <?php endif; ?>
+                                <div class="mb-3">
+                                    <label for="comment" class="form-label">Comment (optional)</label>
+                                    <textarea class="form-control" id="comment" name="comment" rows="3"
+                                              placeholder="Add a comment about this status change"></textarea>
+                                </div>
 
                                 <div class="d-flex gap-2">
                                     <button type="submit" class="btn btn-primary">

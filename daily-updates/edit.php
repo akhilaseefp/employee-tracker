@@ -55,6 +55,13 @@ $myTasks = Database::fetchAll(
     [':userId' => $userId]
 );
 
+// Get currently linked tasks
+$currentLinkedTasks = Database::fetchAll(
+    "SELECT task_id FROM daily_update_tasks WHERE daily_update_id = :updateId",
+    [':updateId' => $updateId]
+);
+$linkedTaskIds = array_map('intval', array_column($currentLinkedTasks, 'task_id'));
+
 $errors = [];
 $old = [
     'work_date' => $update['work_date'],
@@ -77,6 +84,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $old['blockers'] = validateString($_POST['blockers'] ?? '', 500) ?? '';
     $old['notes'] = validateString($_POST['notes'] ?? '', 1000) ?? '';
 
+    // Selected tasks to link
+    $selectedTaskIds = [];
+    if (!empty($_POST['task_ids']) && is_array($_POST['task_ids'])) {
+        foreach ($_POST['task_ids'] as $tid) {
+            $validTid = validateInt($tid, 1);
+            if ($validTid) {
+                $selectedTaskIds[] = $validTid;
+            }
+        }
+    }
+
+    // Validate that all selected tasks actually belong to this employee
+    if (!empty($selectedTaskIds)) {
+        $myTaskIds = array_map('intval', array_column($myTasks, 'id'));
+        foreach ($selectedTaskIds as $tid) {
+            if (!in_array($tid, $myTaskIds, true)) {
+                $errors['task_ids'] = 'One or more selected tasks are invalid or not assigned to you.';
+                break;
+            }
+        }
+    }
+
     if (empty($old['completed_work'])) {
         $errors['completed_work'] = 'Completed work is required.';
     }
@@ -97,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['duplicate'] = 'You already have a daily update for ' . formatDate($old['work_date']) . '.';
     }
 
-    if (empty($errors['duplicate'] ?? '') && empty($errors['completed_work'] ?? '') && empty($errors['planned_work'] ?? '')) {
+    if (empty($errors)) {
         try {
             Database::beginTransaction();
 
@@ -110,6 +139,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'notes' => $old['notes'],
                 'updated_at' => date('Y-m-d H:i:s'),
             ], 'id', $updateId);
+
+            // Sync linked tasks
+            Database::query("DELETE FROM daily_update_tasks WHERE daily_update_id = :updateId", [':updateId' => $updateId]);
+            foreach ($selectedTaskIds as $tid) {
+                Database::insert('daily_update_tasks', [
+                    'daily_update_id' => $updateId,
+                    'task_id' => $tid,
+                ]);
+            }
 
             Database::commit();
 
@@ -200,22 +238,37 @@ include __DIR__ . '/../includes/header.php';
                 <div class="form-text">Additional notes.</div>
             </div>
 
-            <!-- Show assigned tasks for reference -->
+            <!-- Link assigned tasks worked on -->
             <?php if (!empty($myTasks)): ?>
-                <div class="mt-3 p-3 bg-light border">
-                    <h6 class="mb-3"><i class="fas fa-list me-2"></i>Your Assigned Tasks</h6>
-                    <div class="row">
+                <div class="mb-3">
+                    <label class="form-label fw-bold"><i class="fas fa-tasks me-2"></i>Link Assigned Tasks Worked On</label>
+                    <?php if (!empty($errors['task_ids'])): ?>
+                        <div class="alert alert-danger py-2 small"><?php echo htmlspecialchars($errors['task_ids']); ?></div>
+                    <?php endif; ?>
+                    <div class="row g-2 border rounded p-3 bg-light">
                         <?php foreach ($myTasks as $task): ?>
-                            <div class="col-6 small">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span><?php echo htmlspecialchars($task['title']); ?></span>
-                                    <span class="badge bg-<?php echo getPriorityBadgeClass($task['priority']); ?> ms-1">
-                                        <?php echo htmlspecialchars($task['priority']); ?>
-                                    </span>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="task_ids[]"
+                                           value="<?php echo (int) $task['id']; ?>"
+                                           id="task_<?php echo (int) $task['id']; ?>"
+                                           <?php
+                                               $checked = isset($selectedTaskIds)
+                                                   ? in_array($task['id'], $selectedTaskIds, true)
+                                                   : in_array($task['id'], $linkedTaskIds, true);
+                                               echo $checked ? 'checked' : '';
+                                           ?>>
+                                    <label class="form-check-label d-flex justify-content-between align-items-center" for="task_<?php echo (int) $task['id']; ?>">
+                                        <span><?php echo htmlspecialchars($task['title']); ?></span>
+                                        <span class="badge bg-<?php echo getPriorityBadgeClass($task['priority']); ?> ms-1">
+                                            <?php echo htmlspecialchars($task['priority']); ?>
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
+                    <div class="form-text">Select the tasks you worked on to link them to this update.</div>
                 </div>
             <?php endif; ?>
 

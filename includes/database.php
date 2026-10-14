@@ -23,8 +23,9 @@ class Database {
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ];
                 self::$pdo = new PDO($dsn, DB_USER, DB_PASSWORD, $options);
-                // Ensure correct charset
+                // Ensure correct charset and timezone
                 self::$pdo->exec("SET NAMES utf8mb4");
+                self::$pdo->exec("SET time_zone = '+00:00'");
             } catch (PDOException $e) {
                 // Log error securely; do not expose details to user
                 error_log('Database connection failed: ' . $e->getMessage());
@@ -67,10 +68,19 @@ class Database {
      * Insert a record and return the new ID.
      */
     public static function insert(string $table, array $data): int {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            throw new InvalidArgumentException("Invalid table name: {$table}");
+        }
         $columns = array_keys($data);
+        foreach ($columns as $col) {
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $col)) {
+                throw new InvalidArgumentException("Invalid column name: {$col}");
+            }
+        }
+        $escapedColumns = array_map(fn($col) => "`{$col}`", $columns);
         $placeholders = array_map(fn($col) => ':' . $col, $columns);
 
-        $sql = "INSERT INTO {$table} (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
+        $sql = "INSERT INTO `{$table}` (" . implode(', ', $escapedColumns) . ") VALUES (" . implode(', ', $placeholders) . ")";
 
         $params = [];
         foreach ($data as $key => $value) {
@@ -86,17 +96,26 @@ class Database {
      */
 
     public static function update(string $table, array $data, string $whereColumn, $whereValue): int {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            throw new InvalidArgumentException("Invalid table name: {$table}");
+        }
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $whereColumn)) {
+            throw new InvalidArgumentException("Invalid column name: {$whereColumn}");
+        }
         $setParts = [];
         $params = [];
 
         foreach ($data as $key => $value) {
-            $setParts[] = "{$key} = :{$key}";
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $key)) {
+                throw new InvalidArgumentException("Invalid column name: {$key}");
+            }
+            $setParts[] = "`{$key}` = :{$key}";
             $params[':' . $key] = $value;
         }
 
         $params[':where'] = $whereValue;
 
-        $sql = "UPDATE {$table} SET " . implode(', ', $setParts) . " WHERE {$whereColumn} = :where";
+        $sql = "UPDATE `{$table}` SET " . implode(', ', $setParts) . " WHERE `{$whereColumn}` = :where";
 
         // Execute the update and keep the resulting statement.
         $stmt = self::query($sql, $params);

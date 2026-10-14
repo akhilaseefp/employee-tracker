@@ -55,10 +55,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['title'] = 'Title is required.';
     }
 
+    $assignedUser = null;
     if (empty($old['assigned_to'])) {
         $errors['assigned_to'] = 'Please select an employee to assign the task.';
-    } elseif (!isActiveEmployee($old['assigned_to'])) {
-        $errors['assigned_to'] = 'Selected employee is not active or does not exist.';
+    } else {
+        $assignedUser = Database::fetchOne(
+            'SELECT id, role, manager_id, is_active FROM users WHERE id = :id',
+            [':id' => $old['assigned_to']]
+        );
+
+        if (!$assignedUser || !$assignedUser['is_active'] || $assignedUser['role'] !== ROLE_EMPLOYEE) {
+            $errors['assigned_to'] = 'Selected employee is not an active employee.';
+        } elseif ($userRole === ROLE_MANAGER && (int) $assignedUser['manager_id'] !== (int) $userId) {
+            $errors['assigned_to'] = 'You can only assign tasks to members of your team.';
+        }
     }
 
     if (empty($old['start_date'])) {
@@ -79,16 +89,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             Database::beginTransaction();
 
+            // Responsible manager: for managers it's their ID, for admins it's the employee's assigned manager (or admin)
+            $taskManagerId = ($userRole === ROLE_MANAGER)
+                ? $userId
+                : (!empty($assignedUser['manager_id']) ? (int) $assignedUser['manager_id'] : $userId);
+
+            $completedAt = ($old['status'] === STATUS_COMPLETED) ? date('Y-m-d H:i:s') : null;
+
             $taskId = Database::insert('tasks', [
                 'title' => $old['title'],
                 'description' => $old['description'],
                 'assigned_to' => $old['assigned_to'],
                 'created_by' => $userId,
-                'manager_id' => $userId, // The creator (manager or admin) owns the task for reporting
+                'manager_id' => $taskManagerId,
                 'priority' => $old['priority'],
                 'status' => $old['status'],
                 'start_date' => $old['start_date'],
                 'due_date' => $old['due_date'],
+                'completed_at' => $completedAt,
             ]);
 
             // Log task creation in activity

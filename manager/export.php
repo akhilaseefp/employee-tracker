@@ -12,21 +12,65 @@ requireLogin();
 requireManager();
 
 $user = getCurrentUser();
-$userId = $user['id'];
-$managerId = $user['manager_id'] ?? null;
+$userId = (int) $user['id'];
+$userRole = $user['role'];
 
 // Get filter parameters from query
-$dateFrom = $_GET['date_from'] ?? date('Y-m-01');
-$dateTo = $_GET['date_to'] ?? date('Y-m-d');
+$dateFrom = validateDate($_GET['date_from'] ?? '');
+$dateTo = validateDate($_GET['date_to'] ?? '');
 $employeeId = validateInt($_GET['employee'] ?? 0, 1);
 
-// Build where clause
-$where = "WHERE t.manager_id = :managerId AND t.due_date BETWEEN :dateFrom AND :dateTo";
-$params = [':managerId' => $managerId, ':dateFrom' => $dateFrom, ':dateTo' => $dateTo];
+// Build where clause and params
+$where = 'WHERE 1=1';
+$params = [];
 
-if (!empty($employeeId)) {
-    $where .= ' AND t.assigned_to = :employeeId';
-    $params[':employeeId'] = $employeeId;
+if ($userRole === ROLE_ADMIN) {
+    if (!empty($employeeId)) {
+        $where .= ' AND t.assigned_to = :employeeId';
+        $params[':employeeId'] = $employeeId;
+    }
+} else {
+    // Manager scoping: tasks assigned to direct reports or managed by this manager
+    $teamMembers = getTeamMembers($userId);
+    if (empty($teamMembers)) {
+        $where .= ' AND 1=0';
+    } else {
+        $teamIds = array_column($teamMembers, 'id');
+        if (!empty($employeeId)) {
+            if (in_array($employeeId, $teamIds)) {
+                $where .= ' AND t.assigned_to = :employeeId';
+                $params[':employeeId'] = $employeeId;
+            } else {
+                $where .= ' AND 1=0';
+            }
+        } else {
+            $placeholders = [];
+            foreach ($teamIds as $idx => $id) {
+                $p = ':team_member_' . $idx;
+                $placeholders[] = $p;
+                $params[$p] = $id;
+            }
+            $params[':managerId'] = $userId;
+            $where .= ' AND (t.assigned_to IN (' . implode(', ', $placeholders) . ') OR t.manager_id = :managerId)';
+        }
+    }
+}
+
+// Date filters
+if (!empty($dateFrom) && !empty($dateTo)) {
+    $where .= ' AND (t.due_date BETWEEN :dateFrom AND :dateTo OR (t.created_at >= :dateFromDt AND t.created_at <= :dateToDt))';
+    $params[':dateFrom'] = $dateFrom;
+    $params[':dateTo'] = $dateTo;
+    $params[':dateFromDt'] = $dateFrom . ' 00:00:00';
+    $params[':dateToDt'] = $dateTo . ' 23:59:59';
+} elseif (!empty($dateFrom)) {
+    $where .= ' AND (t.due_date >= :dateFrom OR t.created_at >= :dateFromDt)';
+    $params[':dateFrom'] = $dateFrom;
+    $params[':dateFromDt'] = $dateFrom . ' 00:00:00';
+} elseif (!empty($dateTo)) {
+    $where .= ' AND (t.due_date <= :dateTo OR t.created_at <= :dateToDt)';
+    $params[':dateTo'] = $dateTo;
+    $params[':dateToDt'] = $dateTo . ' 23:59:59';
 }
 
 // Get tasks data
@@ -42,32 +86,19 @@ $tasks = Database::fetchAll(
     $params
 );
 
-// Get employees for reference
-$employees = Database::fetchAll(
-    "SELECT id, name, email FROM users WHERE manager_id = :managerId AND role = :employeeRole AND is_active = 1",
-    [':managerId' => $managerId, ':employeeRole' => ROLE_EMPLOYEE]
-);
-
-// CSV headers
-header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename="team-report-' . date('Y-m-d') . '.csv"');
-header('Pragma: no-cache');
-header('Expires: 0');
-
-// Output BOM for Excel compatibility
-echo "\xEF\xBB\xBF";
-
 // Column headers
-$columns = ['ID', 'Task Title', 'Assigned Employee', 'Employee Email', 'Priority', 'Status',
-            'Start Date', 'Due Date', 'Completed Date', 'Created By'];
-fputcsv($output = fopen('php://memory', 'w'), $columns);
+$columns = [
+    'ID', 'Task Title', 'Assigned Employee', 'Employee Email', 'Priority', 'Status',
+    'Start Date', 'Due Date', 'Completed Date', 'Created By'
+];
 
 // Write task data
+$rows = [];
 foreach ($tasks as $task) {
     $completedDate = $task['completed_at'] ? formatDateTime($task['completed_at']) : '';
-    $creator = $task['creator_name'] ? htmlspecialchars($task['creator_name']) : '';
+    $creator = $task['creator_name'] ?? '';
 
-    $row = [
+    $rows[] = [
         $task['id'],
         $task['title'],
         $task['assigned_employee'],
@@ -79,18 +110,7 @@ foreach ($tasks as $task) {
         $completedDate,
         $creator,
     ];
-
-    // CSV-safe string conversion (prevents spreadsheet formula injection)
-    $safeRow = array_map(function($cell) {
-        return sanitizeCsv((string) $cell);
-    }, $row);
-
-    fputcsv($output, $safeRow);
 }
 
-rewind($output);
-$csv = stream_get_contents($output);
-fclose($output);
-
-echo $csv;
-exit;
+$filename = 'team-report-' . date('Y-m-d') . '.csv';
+downloadCsv($filename, $columns, $rows);

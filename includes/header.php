@@ -2,6 +2,10 @@
 // Page header with HTML structure, CSS, and navigation bar
 // Shared across all pages for consistent look and feel.
 
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/validation.php';
+
 $pageTitle = $pageTitle ?? 'Employee Work Tracker';
 $user = isset($_SESSION['user_id']) ? getCurrentUser() : null;
 ?>

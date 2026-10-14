@@ -4,7 +4,8 @@
 
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/csrf.php';
-
+require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/validation.php';
 
 session_start();
 
@@ -54,19 +55,24 @@ function loginUser(string $email, string $password): array|false {
         return false;
     }
 
-    // Fetch user by email (case-insensitive search)
+    // Fetch user by email (case-insensitive search) - check user regardless of is_active to give specific feedback
     $user = Database::fetchOne(
-        'SELECT * FROM users WHERE LOWER(email) = LOWER(:email) AND is_active = 1',
+        'SELECT * FROM users WHERE LOWER(email) = LOWER(:email)',
         [':email' => $email]
     );
 
     if ($user && verifyPassword($password, $user['password_hash'])) {
+        if (!$user['is_active']) {
+            setFlash('Your account is deactivated. Please contact an administrator.', 'error');
+            return false;
+        }
+
         // Password verified - set session data
-        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_role'] = $user['role'];
-        $_SESSION['manager_id'] = $user['manager_id'];
+        $_SESSION['manager_id'] = $user['manager_id'] ? (int) $user['manager_id'] : null;
         $_SESSION['logged_in'] = true;
 
         // Regenerate session ID after successful login (mitigates session fixation)
@@ -94,14 +100,27 @@ function isLoggedIn(): bool {
 
 /**
  * Require the user to be logged in.
- * Redirects to login page if not authenticated.
+ * Redirects to login page if not authenticated, inactive, or timed out.
  */
 function requireLogin(): void {
     if (!isLoggedIn()) {
-        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-        header('Location: ' . APP_URL . '/login.php');
-        exit;
+        $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'] ?? '';
+        redirect('login.php', 'info', 'Please sign in to access this page.');
     }
+
+    // Enforce session timeout
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > SESSION_LIFETIME) {
+        logoutUserWithMessage('Your session has expired due to inactivity. Please sign in again.');
+    }
+
+    // Enforce active status in database
+    $currentStatus = Database::fetchOne('SELECT is_active FROM users WHERE id = :id', [':id' => $_SESSION['user_id']]);
+    if (!$currentStatus || !$currentStatus['is_active']) {
+        logoutUserWithMessage('Your account has been deactivated. Please contact an administrator.');
+    }
+
+    // Update last activity timestamp
+    $_SESSION['last_activity'] = time();
 }
 
 /**
@@ -125,10 +144,7 @@ function requireRole(string $requiredRole): void {
     $requiredLevel = $roleHierarchy[$requiredRole] ?? 0;
 
     if ($userLevel < $requiredLevel) {
-        // User lacks sufficient privileges
-        $_SESSION['error'] = 'You do not have permission to access this page.';
-        header('Location: ' . APP_URL . '/dashboard.php');
-        exit;
+        redirect('dashboard.php', 'error', 'You do not have permission to access this page.');
     }
 }
 
@@ -183,13 +199,14 @@ function canAccessResource(int $userId, int $resourceOwnerId, string $resourceTy
 }
 
 /**
- * Log out the current user and destroy the session.
+ * Log out the current user and destroy the session with an optional message.
+ *
+ * @param string $message Flash message to display on the login page
+ * @param string $type Message type (info, error, success)
  */
-function logoutUser(): void {
-    // Unset all session variables
+function logoutUserWithMessage(string $message, string $type = 'error'): void {
     $_SESSION = [];
 
-    // Delete the session cookie
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
         setcookie(
@@ -203,12 +220,18 @@ function logoutUser(): void {
         );
     }
 
-    // Destroy the session
     session_destroy();
-
-    // Redirect to login page
-    header('Location: ' . APP_URL . '/login.php');
+    session_start();
+    setFlash($message, $type);
+    header('Location: ' . url('login.php'));
     exit;
+}
+
+/**
+ * Log out the current user and destroy the session.
+ */
+function logoutUser(): void {
+    logoutUserWithMessage('You have been logged out successfully.', 'info');
 }
 
 /**
