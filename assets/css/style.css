@@ -1,0 +1,87 @@
+/* Custom styles for Employee Work Tracker */
+/* Bootstrap 5 CDN used as base, customizations for this application */
+
+body {
+    background-color: #fafafa;
+    color: #212529;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Custom card styles */
+.card {
+    border: 1px solid #e7e9eb;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Custom badge enhancements */
+.badge-primary {
+    background-color: rgba(13, 110, 253, 0.15) !important;
+    border: 1px solid rgba(13, 110, 253, 0.3);
+}
+
+/* Table row hover */
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+
+/* Empty state */
+.empty-state {
+    color: #6c757d;
+}
+
+/* Status badges */
+.badge-success { background-color: rgba(40, 167, 69, 0.2) !important; border-color: rgba(40, 167, 69, 0.3); }
+.badge-warning { background-color: rgba(255, 193, 7, 0.2) !important; border-color: rgba(255, 193, 7, 0.3); }
+.badge-danger { background-color: rgba(220, 57, 39, 0.2) !important; border-color: rgba(220, 57, 39, 0.3); }
+.badge-info { background-color: rgba(23, 162, 184, 0.2) !important; border-color: rgba(23, 162, 184, 0.3); }
+.badge-secondary { background-color: rgba(108, 117, 125, 0.2) !important; border-color: rgba(108, 117, 125, 0.3); }
+
+/* Progress bars */
+.progress {
+    height: 10px;
+    background-color: #e7e9eb;
+    border-radius: 0.25rem;
+    box-shadow: inset;
+}
+
+.progress-bar {
+    border-radius: 0.25rem;
+    line-height: 1;
+}
+
+/* Form validation */
+.is-invalid {
+    border-color: rgba(220, 57, 39, 0.4) !important;
+}
+
+.invalid-feedback {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    color: rgba(220, 57, 39, 0.8);
+}
+
+/* Sidebar active link */
+.nav-link.active {
+    color: rgba(13, 110, 253, 1);
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+
+/* Flash messages */
+.alert {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Print styles */
+@media print {
+    .no-print { display: none; }
+    body { font-size: 12pt; }
+    .card { box-shadow: none; border: 1px solid #dee2e6; }
+}

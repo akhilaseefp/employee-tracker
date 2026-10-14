@@ -1,0 +1,28 @@
+# Employee Work Tracker - .gitignore
+# Local XAMPP project
+
+# IDE / Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+error_log
+
+# Environment / config overrides
+.env
+config.local.php
+
+# Compiled files
+*.cache
+
+# Do not commit the master prompt to production
+# employee_work_tracker_master_prompt.md
